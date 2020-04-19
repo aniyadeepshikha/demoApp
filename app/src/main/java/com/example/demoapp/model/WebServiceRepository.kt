@@ -1,6 +1,7 @@
 package com.example.demoapp.model
 
-import android.util.Log
+import android.content.Context
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import retrofit2.Call
 import retrofit2.Callback
@@ -26,32 +27,45 @@ class WebServiceRepository {
     companion object {
         private var webRepository: WebServiceRepository? = null
         fun getInstance(): WebServiceRepository? {
-        if (webRepository == null) {
-            webRepository = WebServiceRepository()
+            if (webRepository == null) {
+                webRepository = WebServiceRepository()
+            }
+            return webRepository
         }
-        return webRepository
     }
-}
 
-        public fun getFacts(): MutableLiveData<CountryDetails?>? {
-            val facts: MutableLiveData<CountryDetails?> = MutableLiveData<CountryDetails?>()
-            apiService?.getData()?.enqueue(object : Callback<CountryDetails?> {
-                override fun onResponse(
-                    call: Call<CountryDetails?>?,
-                    response: Response<CountryDetails?>
-                ) {
-                    if (response.isSuccessful()) {
-                        facts.setValue(response.body())
-                        Log.d("WebService Call--", "deep---"+response.body())
+    fun getFacts(context: Context): LiveData<CountryDetails?>? {
+        val facts: MutableLiveData<CountryDetails?> = MutableLiveData<CountryDetails?>()
+        apiService?.getData()?.enqueue(object : Callback<CountryDetails?> {
+            override fun onResponse(
+                call: Call<CountryDetails?>?,
+                response: Response<CountryDetails?>
+            ) {
+                if (response.isSuccessful()) {
+                    facts.setValue(response.body())
+                    val dbRepository = DbRepository.getInstance(context)
+                    dbRepository!!.deleteAll()
+
+                    var countryDetails: CountryDetails? = response.body()
+                    var tempDataList: ArrayList<Details> = ArrayList();
+
+                    for (data in countryDetails!!.rows) {
+                        if (data.title != null) {
+                            tempDataList.add(data);
+                        }
                     }
-                }
 
-                override fun onFailure(call: Call<CountryDetails?>?, t: Throwable?) {
-                    Log.d("WebService Call--", "error---")
+                    countryDetails!!.rows = tempDataList;
 
-                    facts.setValue(null)
+                    dbRepository!!.insertDetails(countryDetails)
                 }
-            })
-            return facts
-        }
+            }
+
+            override fun onFailure(call: Call<CountryDetails?>?, t: Throwable?) {
+                facts.setValue(null)
+            }
+        })
+        return facts
+    }
+
 }
